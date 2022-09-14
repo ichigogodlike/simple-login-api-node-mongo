@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const router = express.Router();
 const userService = require('./user.service');
+const auditService=require('./audit.service');
 
 // routes
 router.post('/authenticate', authenticate);
@@ -10,6 +11,9 @@ router.get('/current', getCurrent);
 router.get('/:id', getById);
 router.put('/:id', update);
 router.delete('/:id', _delete);
+router.post('/login', login)
+router.get('/logout', logout)
+router.get('/audit', getAllInfo)
 
 module.exports = router;
 
@@ -54,3 +58,39 @@ function _delete(req, res, next) {
         .then(() => res.json({}))
         .catch(err => next(err));
 }
+function login(req,res,next){
+    userService.authenticate(req.body)
+    .then((user) => {
+        if(user){
+            req.session.user=user 
+            auditService.login(user)
+        }
+        else{
+            res.status(400).json({ message: 'Username or password is incorrect' })
+        }
+
+    })
+        .catch(err => next(err));
+}
+
+function logout(req,res,next){
+    const user=req.session.user;
+    auditService.logout(user).then((res)=>{
+        req.session.user=null
+    }).catch((err)=>{
+        console.log(err)
+    });
+}
+
+function getAllInfo(req,res,next){
+  const user =req.session.user;
+  if(user.role==='auditor'){
+    auditService.getAll().then((data)=>{
+        res.status(200).json(data)
+    }).catch(err=>console.log(err))
+  }
+  else{
+    res.status(401).send("User not in the role of auditor")
+  }
+}
+
